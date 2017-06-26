@@ -26,7 +26,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'qtype_ioshmultichoice';
-$plugin->version   = 2012061700;
+$plugin->version   = 2012061700; // Moodle 2.8
 
 $plugin->requires  = 2012061700;
 
