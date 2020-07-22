@@ -15,20 +15,32 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Multiple choice question type upgrade code.
+ * Privacy Subsystem implementation for qtype_ioshmultichoice.
  *
- * @package    qtype
- * @subpackage ioshmultichoice
- * @copyright  1999 onwards Martin Dougiamas {@link http://moodle.com}
+ * @package    qtype_ioshmultichoice
+ * @copyright  2018 Andrew Nicols <andrew@nicols.co.uk>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+namespace qtype_ioshmultichoice\privacy;
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Upgrade code for the multiple choice question type.
- * @param int $oldversion the version we are upgrading from.
+ * Privacy Subsystem for qtype_ioshmultichoice implementing null_provider.
+ *
+ * @copyright  2018 Andrew Nicols <andrew@nicols.co.uk>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-function xmldb_qtype_ioshmultichoice_upgrade($oldversion) {
-    return true;
+class provider implements \core_privacy\local\metadata\null_provider {
+
+    /**
+     * Get the language string identifier with the component's language
+     * file to explain why this plugin stores no data.
+     *
+     * @return  string
+     */
+    public static function get_reason() : string {
+        return 'privacy:metadata';
+    }
 }

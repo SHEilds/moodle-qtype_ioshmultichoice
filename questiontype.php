@@ -18,7 +18,7 @@
  * The questiontype class for the multiple choice question type.
  *
  * @package    qtype
- * @subpackage multichoice
+ * @subpackage ioshmultichoice
  * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -39,9 +39,50 @@ require_once($CFG->libdir . '/questionlib.php');
 class qtype_ioshmultichoice extends question_type {
     public function get_question_options($question) {
         global $DB, $OUTPUT;
-        $question->options = $DB->get_record('question_ioshmultichoice',
-                array('question' => $question->id), '*', MUST_EXIST);
+
+        $question->options = $DB->get_record('qtype_ioshmultichoice_opts', ['questionid' => $question->id]);
+
+        if ($question->options === false) {
+            // If this has happened, then we have a problem.
+            // For the user to be able to edit or delete this question, we need options.
+            debugging("Question ID {$question->id} was missing an options record. Using default.", DEBUG_DEVELOPER);
+
+            $question->options = $this->create_default_options($question);
+        }
+
         parent::get_question_options($question);
+    }
+
+    /**
+     * Create a default options object for the provided question.
+     *
+     * @param object $question The queston we are working with.
+     * @return object The options object.
+     */
+    protected function create_default_options($question) {
+        // Create a default question options record.
+        $options = new stdClass();
+        $options->questionid = $question->id;
+
+        // Get the default strings and just set the format.
+        $options->correctfeedback = get_string('correctfeedbackdefault', 'question');
+        $options->correctfeedbackformat = FORMAT_HTML;
+        $options->partiallycorrectfeedback = get_string('partiallycorrectfeedbackdefault', 'question');;
+        $options->partiallycorrectfeedbackformat = FORMAT_HTML;
+        $options->incorrectfeedback = get_string('incorrectfeedbackdefault', 'question');
+        $options->incorrectfeedbackformat = FORMAT_HTML;
+
+        $config = get_config('qtype_ioshmultichoice');
+        $options->single = $config->answerhowmany;
+        if (isset($question->layout)) {
+            $options->layout = $question->layout;
+        }
+        $options->answernumbering = $config->answernumbering;
+        $options->shuffleanswers = $config->shuffleanswers;
+        $options->showstandardinstruction = 0;
+        $options->shownumcorrect = 1;
+
+        return $options;
     }
 
     public function save_question_options($question) {
@@ -52,22 +93,21 @@ class qtype_ioshmultichoice extends question_type {
         $oldanswers = $DB->get_records('question_answers',
                 array('question' => $question->id), 'id ASC');
 
-        // following hack to check at least two answers exist
+        // Following hack to check at least two answers exist.
         $answercount = 0;
         foreach ($question->answer as $key => $answer) {
             if ($answer != '') {
                 $answercount++;
             }
         }
-        if ($answercount < 2) { // check there are at lest 2 answers for multiple choice
-            $result->notice = get_string('notenoughanswers', 'qtype_ioshmultichoice', '2');
+        if ($answercount < 2) { // Check there are at lest 2 answers for multiple choice.
+            $result->error = get_string('notenoughanswers', 'qtype_ioshmultichoice', '2');
             return $result;
         }
 
-        // Insert all the new answers
+        // Insert all the new answers.
         $totalfraction = 0;
         $maxfraction = -1;
-        $answers = array();
         foreach ($question->answer as $key => $answerdata) {
             if (trim($answerdata['text']) == '') {
                 continue;
@@ -83,7 +123,7 @@ class qtype_ioshmultichoice extends question_type {
                 $answer->id = $DB->insert_record('question_answers', $answer);
             }
 
-            // Doing an import
+            // Doing an import.
             $answer->answer = $this->import_or_save_files($answerdata,
                     $context, 'question', 'answer', $answer->id);
             $answer->answerformat = $answerdata['format'];
@@ -93,7 +133,6 @@ class qtype_ioshmultichoice extends question_type {
             $answer->feedbackformat = $question->feedback[$key]['format'];
 
             $DB->update_record('question_answers', $answer);
-            $answers[] = $answer->id;
 
             if ($question->fraction[$key] > 0) {
                 $totalfraction += $question->fraction[$key];
@@ -110,29 +149,30 @@ class qtype_ioshmultichoice extends question_type {
             $DB->delete_records('question_answers', array('id' => $oldanswer->id));
         }
 
-        $options = $DB->get_record('question_ioshmultichoice', array('question' => $question->id));
+        $options = $DB->get_record('qtype_ioshmultichoice_opts', array('questionid' => $question->id));
         if (!$options) {
             $options = new stdClass();
-            $options->question = $question->id;
+            $options->questionid = $question->id;
             $options->correctfeedback = '';
             $options->partiallycorrectfeedback = '';
             $options->incorrectfeedback = '';
-            $options->id = $DB->insert_record('question_ioshmultichoice', $options);
+            $options->showstandardinstruction = 0;
+            $options->id = $DB->insert_record('qtype_ioshmultichoice_opts', $options);
         }
 
-        $options->answers = implode(',', $answers);
         $options->single = $question->single;
         if (isset($question->layout)) {
             $options->layout = $question->layout;
         }
         $options->answernumbering = $question->answernumbering;
         $options->shuffleanswers = $question->shuffleanswers;
+        $options->showstandardinstruction = !empty($question->showstandardinstruction);
         $options = $this->save_combined_feedback_helper($options, $question, $context, true);
-        $DB->update_record('question_ioshmultichoice', $options);
+        $DB->update_record('qtype_ioshmultichoice_opts', $options);
 
         $this->save_hints($question, true);
 
-        // Perform sanity checks on fractional grades
+        // Perform sanity checks on fractional grades.
         if ($options->single) {
             if ($maxfraction != 1) {
                 $result->noticeyesno = get_string('fractionsnomax', 'qtype_ioshmultichoice',
@@ -167,6 +207,7 @@ class qtype_ioshmultichoice extends question_type {
         parent::initialise_question_instance($question, $questiondata);
         $question->shuffleanswers = $questiondata->options->shuffleanswers;
         $question->answernumbering = $questiondata->options->answernumbering;
+        $question->showstandardinstruction = $questiondata->options->showstandardinstruction;
         if (!empty($questiondata->options->layout)) {
             $question->layout = $questiondata->options->layout;
         } else {
@@ -177,9 +218,14 @@ class qtype_ioshmultichoice extends question_type {
         $this->initialise_question_answers($question, $questiondata, false);
     }
 
+    public function make_answer($answer) {
+        // Overridden just so we can make it public for use by question.php.
+        return parent::make_answer($answer);
+    }
+
     public function delete_question($questionid, $contextid) {
         global $DB;
-        $DB->delete_records('question_ioshmultichoice', array('question' => $questionid));
+        $DB->delete_records('qtype_ioshmultichoice_opts', array('questionid' => $questionid));
 
         parent::delete_question($questionid, $contextid);
     }
@@ -203,9 +249,9 @@ class qtype_ioshmultichoice extends question_type {
             $responses = array();
 
             foreach ($questiondata->options->answers as $aid => $answer) {
-                $responses[$aid] = new question_possible_response(html_to_text(format_text(
-                        $answer->answer, $answer->answerformat, array('noclean' => true)),
-                        0, false), $answer->fraction);
+                $responses[$aid] = new question_possible_response(
+                        question_utils::to_plain_text($answer->answer, $answer->answerformat),
+                        $answer->fraction);
             }
 
             $responses[null] = question_possible_response::no_response();
@@ -214,10 +260,9 @@ class qtype_ioshmultichoice extends question_type {
             $parts = array();
 
             foreach ($questiondata->options->answers as $aid => $answer) {
-                $parts[$aid] = array($aid =>
-                        new question_possible_response(html_to_text(format_text(
-                        $answer->answer, $answer->answerformat, array('noclean' => true)),
-                        0, false), $answer->fraction));
+                $parts[$aid] = array($aid => new question_possible_response(
+                        question_utils::to_plain_text($answer->answer, $answer->answerformat),
+                        $answer->fraction));
             }
 
             return $parts;

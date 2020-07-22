@@ -37,28 +37,31 @@ require_once($CFG->dirroot . '/question/engine/tests/helpers.php');
 class qtype_ioshmultichoice_single_question_test extends advanced_testcase {
 
     public function test_get_expected_data() {
-        $question = test_question_maker::make_a_multichoice_single_question();
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
         $this->assertEquals(array('answer' => PARAM_INT), $question->get_expected_data());
     }
 
     public function test_is_complete_response() {
-        $question = test_question_maker::make_a_multichoice_single_question();
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
 
         $this->assertFalse($question->is_complete_response(array()));
         $this->assertTrue($question->is_complete_response(array('answer' => '0')));
         $this->assertTrue($question->is_complete_response(array('answer' => '2')));
+        $this->assertFalse($question->is_complete_response(array('answer' => '-1')));
+        $this->assertFalse($question->is_complete_response(array('answer' => -1)));
     }
 
     public function test_is_gradable_response() {
-        $question = test_question_maker::make_a_multichoice_single_question();
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
 
         $this->assertFalse($question->is_gradable_response(array()));
         $this->assertTrue($question->is_gradable_response(array('answer' => '0')));
         $this->assertTrue($question->is_gradable_response(array('answer' => '2')));
+        $this->assertFalse($question->is_gradable_response(array('answer' => '-1')));
     }
 
     public function test_is_same_response() {
-        $question = test_question_maker::make_a_multichoice_single_question();
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertTrue($question->is_same_response(
@@ -80,19 +83,34 @@ class qtype_ioshmultichoice_single_question_test extends advanced_testcase {
         $this->assertTrue($question->is_same_response(
                 array('answer' => '2'),
                 array('answer' => '2')));
+
+        $this->assertFalse($question->is_same_response(
+                array('answer' => '0'),
+                array('answer' => '-1')));
+
+        $this->assertFalse($question->is_same_response(
+                array('answer' => '-1'),
+                array('answer' => '0')));
+
+        $this->assertTrue($question->is_same_response(
+                array('answer' => '-1'),
+                array('answer' => '-1')));
+
+        $this->assertTrue($question->is_same_response(
+                array(),
+                array('answer' => '-1')));
     }
 
     public function test_grading() {
-        $question = test_question_maker::make_a_multichoice_single_question();
-        $question->shuffleanswers = false;
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertEquals(array(1, question_state::$gradedright),
-                $question->grade_response(array('answer' => 0)));
+                $question->grade_response($question->prepare_simulated_post_data(array('answer' => 'A'))));
         $this->assertEquals(array(-0.3333333, question_state::$gradedwrong),
-                $question->grade_response(array('answer' => 1)));
+                $question->grade_response($question->prepare_simulated_post_data(array('answer' => 'B'))));
         $this->assertEquals(array(-0.3333333, question_state::$gradedwrong),
-                $question->grade_response(array('answer' => 2)));
+                $question->grade_response($question->prepare_simulated_post_data(array('answer' => 'C'))));
     }
 
     public function test_grading_rounding_three_right() {
@@ -104,8 +122,8 @@ class qtype_ioshmultichoice_single_question_test extends advanced_testcase {
         $mc->generalfeedback = '1, 3 and 5 are the odd numbers.';
         $mc->qtype = question_bank::get_qtype('ioshmultichoice');
 
-        $mc->shuffleanswers = 0;
         $mc->answernumbering = 'abc';
+        $mc->showstandardinstruction = 0;
 
         test_question_maker::set_standard_combined_feedback_fields($mc);
 
@@ -120,48 +138,49 @@ class qtype_ioshmultichoice_single_question_test extends advanced_testcase {
 
         $mc->start_attempt(new question_attempt_step(), 1);
 
-        list($grade, $state) = $mc->grade_response(
-                array('choice0' => 1, 'choice2' => 1, 'choice4' => 1));
+        list($grade, $state) = $mc->grade_response($mc->prepare_simulated_post_data(array('1' => '1', '3' => '1', '5' => '1')));
         $this->assertEquals(1, $grade, '', 0.000001);
         $this->assertEquals(question_state::$gradedright, $state);
     }
 
     public function test_get_correct_response() {
-        $question = test_question_maker::make_a_multichoice_single_question();
-        $question->shuffleanswers = false;
+        $question = test_question_maker::make_a_ioshmultichoice_single_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
-        $this->assertEquals(array('answer' => 0),
-                $question->get_correct_response());
+        $this->assertEquals($question->prepare_simulated_post_data(array('answer' => 'A')), $question->get_correct_response());
     }
 
     public function test_summarise_response() {
-        $mc = test_question_maker::make_a_multichoice_single_question();
-        $mc->shuffleanswers = false;
+        $mc = test_question_maker::make_a_ioshmultichoice_single_question();
         $mc->start_attempt(new question_attempt_step(), 1);
 
-        $summary = $mc->summarise_response(array('answer' => 0),
-                test_question_maker::get_a_qa($mc));
+        $summary = $mc->summarise_response($mc->prepare_simulated_post_data(array('answer' => 'A')),
+                                            test_question_maker::get_a_qa($mc));
 
         $this->assertEquals('A', $summary);
+
+        $this->assertNull($mc->summarise_response(array(), test_question_maker::get_a_qa($mc)));
+        $this->assertNull($mc->summarise_response(array('answer' => '-1'), test_question_maker::get_a_qa($mc)));
     }
 
     public function test_classify_response() {
-        $mc = test_question_maker::make_a_multichoice_single_question();
-        $mc->shuffleanswers = false;
+        $mc = test_question_maker::make_a_ioshmultichoice_single_question();
         $mc->start_attempt(new question_attempt_step(), 1);
 
-        $this->assertEquals(array(
-                $mc->id => new question_classified_response(14, 'B', -0.3333333),
-                ), $mc->classify_response(array('answer' => 1)));
+        $this->assertEquals(array($mc->id => new question_classified_response(14, 'B', -0.3333333)),
+                            $mc->classify_response($mc->prepare_simulated_post_data(array('answer' => 'B'))));
 
         $this->assertEquals(array(
                 $mc->id => question_classified_response::no_response(),
-            ), $mc->classify_response(array()));
+        ), $mc->classify_response(array()));
+
+        $this->assertEquals(array(
+                $mc->id => question_classified_response::no_response(),
+        ), $mc->classify_response(array('answer' => '-1')));
     }
 
     public function test_make_html_inline() {
-        $mc = test_question_maker::make_a_multichoice_single_question();
+        $mc = test_question_maker::make_a_ioshmultichoice_single_question();
         $this->assertEquals('Frog', $mc->make_html_inline('<p>Frog</p>'));
         $this->assertEquals('Frog<br />Toad', $mc->make_html_inline("<p>Frog</p>\n<p>Toad</p>"));
         $this->assertEquals('<img src="http://example.com/pic.png" alt="Graph" />',
@@ -172,5 +191,22 @@ class qtype_ioshmultichoice_single_question_test extends advanced_testcase {
                     <p> XXX <img src='http://example.com/pic.png' alt='Graph' /> </p> "));
         $this->assertEquals('Frog', $mc->make_html_inline('<p>Frog</p><p></p>'));
         $this->assertEquals('Frog<br />†', $mc->make_html_inline('<p>Frog</p><p>†</p>'));
+    }
+
+    public function test_simulated_post_data() {
+        $mc = test_question_maker::make_a_ioshmultichoice_single_question();
+        $mc->shuffleanswers = false;
+        $mc->answers[13]->answer = '<p>A</p>';
+        $mc->answers[14]->answer = '<p>B</p>';
+        $mc->answers[15]->answer = '<p>C</p>';
+        $mc->start_attempt(new question_attempt_step(), 1);
+
+        $originalresponse = array('answer' => 1);
+
+        $simulated = $mc->get_student_response_values_for_simulation($originalresponse);
+        $this->assertEquals(array('answer' => 'B'), $simulated);
+
+        $reconstucted = $mc->prepare_simulated_post_data($simulated);
+        $this->assertEquals($originalresponse, $reconstucted);
     }
 }

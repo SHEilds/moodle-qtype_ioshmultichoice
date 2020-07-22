@@ -46,17 +46,22 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
         );
         $mform->addElement('select', 'single',
                 get_string('answerhowmany', 'qtype_ioshmultichoice'), $menu);
-        $mform->setDefault('single', 1);
+        $mform->setDefault('single', get_config('qtype_ioshmultichoice', 'answerhowmany'));
 
         $mform->addElement('advcheckbox', 'shuffleanswers',
                 get_string('shuffleanswers', 'qtype_ioshmultichoice'), null, null, array(0, 1));
         $mform->addHelpButton('shuffleanswers', 'shuffleanswers', 'qtype_ioshmultichoice');
-        $mform->setDefault('shuffleanswers', 1);
+        $mform->setDefault('shuffleanswers', get_config('qtype_ioshmultichoice', 'shuffleanswers'));
 
         $mform->addElement('select', 'answernumbering',
                 get_string('answernumbering', 'qtype_ioshmultichoice'),
                 qtype_ioshmultichoice::get_numbering_styles());
-        $mform->setDefault('answernumbering', 'abc');
+        $mform->setDefault('answernumbering', get_config('qtype_ioshmultichoice', 'answernumbering'));
+
+        $mform->addElement('selectyesno', 'showstandardinstruction',
+            get_string('showstandardinstruction', 'qtype_ioshmultichoice'), null, null, [0, 1]);
+        $mform->addHelpButton('showstandardinstruction', 'showstandardinstruction', 'qtype_ioshmultichoice');
+        $mform->setDefault('showstandardinstruction', 0);
 
         $this->add_per_answer_fields($mform, get_string('choiceno', 'qtype_ioshmultichoice', '{no}'),
                 question_bank::fraction_options_full(), max(5, QUESTION_NUMANS_START));
@@ -70,9 +75,8 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
     protected function get_per_answer_fields($mform, $label, $gradeoptions,
             &$repeatedoptions, &$answersoption) {
         $repeated = array();
-        $repeated[] = $mform->createElement('header', 'answerhdr', $label);
         $repeated[] = $mform->createElement('editor', 'answer',
-                get_string('answer', 'question'), array('rows' => 1), $this->editoroptions);
+                $label, array('rows' => 1), $this->editoroptions);
         $repeated[] = $mform->createElement('select', 'fraction',
                 get_string('grade'), $gradeoptions);
         $repeated[] = $mform->createElement('editor', 'feedback',
@@ -81,6 +85,13 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
         $repeatedoptions['fraction']['default'] = 0;
         $answersoption = 'answers';
         return $repeated;
+    }
+
+    protected function get_hint_fields($withclearwrong = false, $withshownumpartscorrect = false) {
+        list($repeated, $repeatedoptions) = parent::get_hint_fields($withclearwrong, $withshownumpartscorrect);
+        $repeatedoptions['hintclearwrong']['disabledif'] = array('single', 'eq', 1);
+        $repeatedoptions['hintshownumcorrect']['disabledif'] = array('single', 'eq', 1);
+        return array($repeated, $repeatedoptions);
     }
 
     protected function data_preprocessing($question) {
@@ -93,6 +104,7 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
             $question->single = $question->options->single;
             $question->shuffleanswers = $question->options->shuffleanswers;
             $question->answernumbering = $question->options->answernumbering;
+            $question->showstandardinstruction = $question->options->showstandardinstruction;
         }
 
         return $question;
@@ -107,7 +119,7 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
         $maxfraction = -1;
 
         foreach ($answers as $key => $answer) {
-            //check no of choices
+            // Check no of choices.
             $trimmedanswer = trim($answer['text']);
             $fraction = (float) $data['fraction'][$key];
             if ($trimmedanswer === '' && empty($fraction)) {
@@ -119,7 +131,7 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
 
             $answercount++;
 
-            //check grades
+            // Check grades.
             if ($data['fraction'][$key] > 0) {
                 $totalfraction += $data['fraction'][$key];
             }
@@ -136,7 +148,7 @@ class qtype_ioshmultichoice_edit_form extends question_edit_form {
 
         }
 
-        /// Perform sanity checks on fractional grades
+        // Perform sanity checks on fractional grades.
         if ($data['single']) {
             if ($maxfraction != 1) {
                 $errors['fraction[0]'] = get_string('errfractionsnomax', 'qtype_ioshmultichoice',

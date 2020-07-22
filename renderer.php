@@ -26,8 +26,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/pagelib.php');
-
 
 /**
  * Base class for generating the bits of output common to multiple choice
@@ -36,7 +34,19 @@ require_once($CFG->libdir . '/pagelib.php');
  * @copyright  2009 The Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_feedback_renderer {
+abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_feedback_renderer
+{
+
+    /**
+     * Method to generating the bits of output after question choices.
+     *
+     * @param question_attempt $qa The question attempt object.
+     * @param question_display_options $options controls what should and should not be displayed.
+     *
+     * @return string HTML output.
+     */
+    protected abstract function after_choices(question_attempt $qa, question_display_options $options);
+
     protected abstract function get_input_type();
 
     protected abstract function get_input_name(question_attempt $qa, $value);
@@ -54,8 +64,11 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
 
     protected abstract function prompt();
 
-    public function formulation_and_controls(question_attempt $qa, question_display_options $options) {
-        global $PAGE, $CFG;
+    public function formulation_and_controls(
+        question_attempt $qa,
+        question_display_options $options
+    )
+    {
 
         $question = $qa->get_question();
         $response = $question->get_response($qa);
@@ -66,7 +79,8 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
             'name' => $inputname,
         );
 
-        if ($options->readonly) {
+        if ($options->readonly)
+        {
             $inputattributes['disabled'] = 'disabled';
         }
 
@@ -74,19 +88,24 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
         $feedbackimg = array();
         $feedback = array();
         $classes = array();
-        foreach ($question->get_order($qa) as $value => $ansid) {
+        foreach ($question->get_order($qa) as $value => $ansid)
+        {
             $ans = $question->answers[$ansid];
             $inputattributes['name'] = $this->get_input_name($qa, $value);
             $inputattributes['value'] = $this->get_input_value($value);
             $inputattributes['id'] = $this->get_input_id($qa, $value);
             $isselected = $question->is_choice_selected($response, $value);
-            if ($isselected) {
+            if ($isselected)
+            {
                 $inputattributes['checked'] = 'checked';
-            } else {
+            }
+            else
+            {
                 unset($inputattributes['checked']);
             }
             $hidden = '';
-            if (!$options->readonly && $this->get_input_type() == 'checkbox') {
+            if (!$options->readonly && $this->get_input_type() == 'checkbox')
+            {
                 $hidden = html_writer::empty_tag('input', array(
                     'type' => 'hidden',
                     'name' => $inputattributes['name'],
@@ -94,69 +113,104 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
                 ));
             }
             $radiobuttons[] = $hidden . html_writer::empty_tag('input', $inputattributes) .
-                    html_writer::tag('label',
-                        $this->number_in_style($value, $question->answernumbering) .
-                        $question->make_html_inline($question->format_text(
-                                $ans->answer, $ans->answerformat,
-                                $qa, 'question', 'answer', $ansid)),
-                    array('for' => $inputattributes['id']));
+                html_writer::tag(
+                    'label',
+                    html_writer::span($this->number_in_style($value, $question->answernumbering), 'answernumber') .
+                        html_writer::tag(
+                            'div',
+                            $question->format_text(
+                                $ans->answer,
+                                $ans->answerformat,
+                                $qa,
+                                'question',
+                                'answer',
+                                $ansid
+                            ),
+                            array('class' => 'flex-fill ml-1')
+                        ),
+                    array('for' => $inputattributes['id'], 'class' => 'd-flex w-100')
+                );
 
-            // $options->suppresschoicefeedback is a hack specific to the
+            // Param $options->suppresschoicefeedback is a hack specific to the
             // oumultiresponse question type. It would be good to refactor to
             // avoid refering to it here.
-            if ($options->feedback && empty($options->suppresschoicefeedback) &&
-                    $isselected && trim($ans->feedback)) {
-                $feedback[] = html_writer::tag('div',
-                        $question->make_html_inline($question->format_text(
-                                $ans->feedback, $ans->feedbackformat,
-                                $qa, 'question', 'answerfeedback', $ansid)),
-                        array('class' => 'specificfeedback'));
-            } else {
+            if (
+                $options->feedback && empty($options->suppresschoicefeedback) &&
+                $isselected && trim($ans->feedback)
+            )
+            {
+                $feedback[] = html_writer::tag(
+                    'div',
+                    $question->make_html_inline($question->format_text(
+                        $ans->feedback,
+                        $ans->feedbackformat,
+                        $qa,
+                        'question',
+                        'answerfeedback',
+                        $ansid
+                    )),
+                    array('class' => 'specificfeedback')
+                );
+            }
+            else
+            {
                 $feedback[] = '';
             }
             $class = 'r' . ($value % 2);
-            if ($options->correctness && $isselected) {
+            if ($options->correctness && $isselected)
+            {
                 $feedbackimg[] = $this->feedback_image($this->is_right($ans));
                 $class .= ' ' . $this->feedback_class($this->is_right($ans));
-            } else {
+            }
+            else
+            {
                 $feedbackimg[] = '';
             }
             $classes[] = $class;
         }
 
         $result = '';
-        $result .= html_writer::tag('div', $question->format_questiontext($qa),
-                array('class' => 'qtext'));
+        $result .= html_writer::tag(
+            'div',
+            $question->format_questiontext($qa),
+            array('class' => 'qtext')
+        );
 
         $result .= html_writer::start_tag('div', array('class' => 'ablock'));
-        $result .= html_writer::tag('div', $this->prompt(), array('class' => 'prompt'));
+        if ($question->showstandardinstruction == 1)
+        {
+            $result .= html_writer::tag('div', $this->prompt(), array('class' => 'prompt'));
+        }
 
         $result .= html_writer::start_tag('div', array('class' => 'answer'));
-        foreach ($radiobuttons as $key => $radio) {
-            $result .= html_writer::tag('div', $radio . ' ' . $feedbackimg[$key] . $feedback[$key],
-                    array('class' => $classes[$key])) . "\n";
+        foreach ($radiobuttons as $key => $radio)
+        {
+            $result .= html_writer::tag(
+                'div',
+                $radio . ' ' . $feedbackimg[$key] . $feedback[$key],
+                array('class' => $classes[$key])
+            ) . "\n";
         }
-        $result .= html_writer::end_tag('div'); // answer
+        $result .= html_writer::end_tag('div'); // Answer.
 
-        $result .= html_writer::end_tag('div'); // ablock
+        $result .= $this->after_choices($qa, $options);
 
-        if ($qa->get_state() == question_state::$invalid) {
-            $result .= html_writer::nonempty_tag('div',
-                    $question->get_validation_error($qa->get_last_qt_data()),
-                    array('class' => 'validationerror'));
+        $result .= html_writer::end_tag('div'); // Ablock.
+
+        if ($qa->get_state() == question_state::$invalid)
+        {
+            $result .= html_writer::nonempty_tag(
+                'div',
+                $question->get_validation_error($qa->get_last_qt_data()),
+                array('class' => 'validationerror')
+            );
         }
-
-        $PAGE->requires->yui_module('moodle-qtype_ioshmultichoice-limitchoices',
-            'M.qtype_ioshmultichoice.limitchoices.init',
-            array(array(
-                'correctAnswers' => count($qa->get_question()->get_correct_response())
-            ))
-        );
 
         return $result;
     }
 
-    protected function number_html($qnum) {
+    protected function number_html($qnum)
+    {
         return $qnum . '. ';
     }
 
@@ -166,8 +220,10 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
      * options returned by {@link qtype_ioshmultichoice:;get_numbering_styles()}.
      * @return string the number $num in the requested style.
      */
-    protected function number_in_style($num, $style) {
-        switch($style) {
+    protected function number_in_style($num, $style)
+    {
+        switch ($style)
+        {
             case 'abc':
                 $number = chr(ord('a') + $num);
                 break;
@@ -191,8 +247,39 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
         return $this->number_html($number);
     }
 
-    public function specific_feedback(question_attempt $qa) {
+    public function specific_feedback(question_attempt $qa)
+    {
         return $this->combined_feedback($qa);
+    }
+
+    /**
+     * Function returns string based on number of correct answers
+     * @param array $right An Array of correct responses to the current question
+     * @return string based on number of correct responses
+     */
+    protected function correct_choices(array $right)
+    {
+        // Return appropriate string for single/multiple correct answer(s).
+        if (count($right) == 1)
+        {
+            return get_string(
+                'correctansweris',
+                'qtype_ioshmultichoice',
+                implode(', ', $right)
+            );
+        }
+        else if (count($right) > 1)
+        {
+            return get_string(
+                'correctanswersare',
+                'qtype_ioshmultichoice',
+                implode(', ', $right)
+            );
+        }
+        else
+        {
+            return "";
+        }
     }
 }
 
@@ -204,44 +291,125 @@ abstract class qtype_ioshmultichoice_renderer_base extends qtype_with_combined_f
  * @copyright  2009 The Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class qtype_ioshmultichoice_single_renderer extends qtype_ioshmultichoice_renderer_base {
-    protected function get_input_type() {
+class qtype_ioshmultichoice_single_renderer extends qtype_ioshmultichoice_renderer_base
+{
+    protected function get_input_type()
+    {
         return 'radio';
     }
 
-    protected function get_input_name(question_attempt $qa, $value) {
+    protected function get_input_name(question_attempt $qa, $value)
+    {
         return $qa->get_qt_field_name('answer');
     }
 
-    protected function get_input_value($value) {
+    protected function get_input_value($value)
+    {
         return $value;
     }
 
-    protected function get_input_id(question_attempt $qa, $value) {
+    protected function get_input_id(question_attempt $qa, $value)
+    {
         return $qa->get_qt_field_name('answer' . $value);
     }
 
-    protected function is_right(question_answer $ans) {
+    protected function is_right(question_answer $ans)
+    {
         return $ans->fraction;
     }
 
-    protected function prompt() {
+    protected function prompt()
+    {
         return get_string('selectone', 'qtype_ioshmultichoice');
     }
 
-    public function correct_response(question_attempt $qa) {
+    public function correct_response(question_attempt $qa)
+    {
         $question = $qa->get_question();
 
-        foreach ($question->answers as $ansid => $ans) {
-            if (question_state::graded_state_for_fraction($ans->fraction) ==
-                    question_state::$gradedright) {
-                return get_string('correctansweris', 'qtype_ioshmultichoice',
-                        $question->make_html_inline($question->format_text($ans->answer, $ans->answerformat,
-                                $qa, 'question', 'answer', $ansid)));
+        // Put all correct answers (100% grade) into $right.
+        $right = array();
+        foreach ($question->answers as $ansid => $ans)
+        {
+            if (
+                question_state::graded_state_for_fraction($ans->fraction) ==
+                question_state::$gradedright
+            )
+            {
+                $right[] = $question->make_html_inline($question->format_text(
+                    $ans->answer,
+                    $ans->answerformat,
+                    $qa,
+                    'question',
+                    'answer',
+                    $ansid
+                ));
+            }
+        }
+        return $this->correct_choices($right);
+    }
+
+    public function after_choices(question_attempt $qa, question_display_options $options)
+    {
+        // Only load the clear choice feature if it's not read only.
+        if ($options->readonly)
+        {
+            return '';
+        }
+
+        $question = $qa->get_question();
+        $response = $question->get_response($qa);
+        $hascheckedchoice = false;
+        foreach ($question->get_order($qa) as $value => $ansid)
+        {
+            if ($question->is_choice_selected($response, $value))
+            {
+                $hascheckedchoice = true;
+                break;
             }
         }
 
-        return '';
+        $clearchoiceid = $this->get_input_id($qa, -1);
+        $clearchoicefieldname = $qa->get_qt_field_name('clearchoice');
+        $clearchoiceradioattrs = [
+            'type' => $this->get_input_type(),
+            'name' => $qa->get_qt_field_name('answer'),
+            'id' => $clearchoiceid,
+            'value' => -1,
+            'class' => 'sr-only'
+        ];
+
+        $cssclass = 'qtype_ioshmultichoice_clearchoice';
+        // When no choice selected during rendering, then hide the clear choice option.
+        $linktabindex = 0;
+        if (!$hascheckedchoice && $response == -1)
+        {
+            $cssclass .= ' sr-only';
+            $clearchoiceradioattrs['checked'] = 'checked';
+            $linktabindex = -1;
+        }
+        // Adds an hidden radio that will be checked to give the impression the choice has been cleared.
+        $clearchoiceradio = html_writer::empty_tag('input', $clearchoiceradioattrs);
+        $clearchoiceradio .= html_writer::link(
+            '',
+            get_string('clearchoice', 'qtype_ioshmultichoice'),
+            [
+                'for' => $clearchoiceid, 'role' => 'button', 'tabindex' => $linktabindex,
+                'class' => 'btn btn-link ml-4 pl-1 mt-2'
+            ]
+        );
+
+        // Now wrap the radio and label inside a div.
+        $result = html_writer::tag('div', $clearchoiceradio, ['id' => $clearchoicefieldname, 'class' => $cssclass]);
+
+        // Load required clearchoice AMD module.
+        $this->page->requires->js_call_amd(
+            'qtype_ioshmultichoice/clearchoice',
+            'init',
+            [$qa->get_outer_question_div_unique_id(), $clearchoicefieldname]
+        );
+
+        return $result;
     }
 }
 
@@ -252,56 +420,97 @@ class qtype_ioshmultichoice_single_renderer extends qtype_ioshmultichoice_render
  * @copyright  2009 The Open University
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class qtype_ioshmultichoice_multi_renderer extends qtype_ioshmultichoice_renderer_base {
-    protected function get_input_type() {
+class qtype_ioshmultichoice_multi_renderer extends qtype_ioshmultichoice_renderer_base
+{
+    public function formulation_and_controls(question_attempt $qa,question_display_options $options)
+    {
+        $result = parent::formulation_and_controls($qa, $options);
+        load_amd_modules($qa);
+
+        return $result;
+    }
+
+    // Load required AMD modules.
+    public function load_amd_modules(question_attempt $qa)
+    {
+        $this->page->requires->js_call_amd(
+            'qtype_ioshmultichoice/limitchoices',
+            'init',
+            [count($qa->get_question()->get_correct_response())]
+        );
+    }
+
+    protected function after_choices(question_attempt $qa, question_display_options $options)
+    {
+        return '';
+    }
+
+    protected function get_input_type()
+    {
         return 'checkbox';
     }
 
-    protected function get_input_name(question_attempt $qa, $value) {
+    protected function get_input_name(question_attempt $qa, $value)
+    {
         return $qa->get_qt_field_name('choice' . $value);
     }
 
-    protected function get_input_value($value) {
+    protected function get_input_value($value)
+    {
         return 1;
     }
 
-    protected function get_input_id(question_attempt $qa, $value) {
+    protected function get_input_id(question_attempt $qa, $value)
+    {
         return $this->get_input_name($qa, $value);
     }
 
-    protected function is_right(question_answer $ans) {
-        if ($ans->fraction > 0) {
+    protected function is_right(question_answer $ans)
+    {
+        if ($ans->fraction > 0)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 0;
         }
     }
 
-    protected function prompt() {
+    protected function prompt()
+    {
         return get_string('selectmulti', 'qtype_ioshmultichoice');
     }
 
-    public function correct_response(question_attempt $qa) {
+    public function correct_response(question_attempt $qa)
+    {
         $question = $qa->get_question();
 
         $right = array();
-        foreach ($question->answers as $ansid => $ans) {
-            if ($ans->fraction > 0) {
-                $right[] = $question->make_html_inline($question->format_text($ans->answer, $ans->answerformat,
-                        $qa, 'question', 'answer', $ansid));
+        foreach ($question->answers as $ansid => $ans)
+        {
+            if ($ans->fraction > 0)
+            {
+                $right[] = $question->make_html_inline($question->format_text(
+                    $ans->answer,
+                    $ans->answerformat,
+                    $qa,
+                    'question',
+                    'answer',
+                    $ansid
+                ));
             }
         }
-
-        if (!empty($right)) {
-                return get_string('correctansweris', 'qtype_ioshmultichoice',
-                        implode(', ', $right));
-        }
-        return '';
+        return $this->correct_choices($right);
     }
 
-    protected function num_parts_correct(question_attempt $qa) {
-        if ($qa->get_question()->get_num_selected_choices($qa->get_last_qt_data()) >
-                $qa->get_question()->get_num_correct_choices()) {
+    protected function num_parts_correct(question_attempt $qa)
+    {
+        if (
+            $qa->get_question()->get_num_selected_choices($qa->get_last_qt_data()) >
+            $qa->get_question()->get_num_correct_choices()
+        )
+        {
             return get_string('toomanyselected', 'qtype_ioshmultichoice');
         }
 

@@ -37,7 +37,7 @@ require_once($CFG->dirroot . '/question/engine/tests/helpers.php');
 class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
 
     public function test_get_expected_data() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertEquals(array('choice0' => PARAM_BOOL, 'choice1' => PARAM_BOOL,
@@ -45,7 +45,7 @@ class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
     }
 
     public function test_is_complete_response() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertFalse($question->is_complete_response(array()));
@@ -57,7 +57,7 @@ class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
     }
 
     public function test_is_gradable_response() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertFalse($question->is_gradable_response(array()));
@@ -69,7 +69,7 @@ class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
     }
 
     public function test_is_same_response() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertTrue($question->is_same_response(
@@ -90,32 +90,28 @@ class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
     }
 
     public function test_grading() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
-        $question->shuffleanswers = false;
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
         $this->assertEquals(array(1, question_state::$gradedright),
-                $question->grade_response(array('choice0' => '1', 'choice2' => '1')));
+                $question->grade_response($question->prepare_simulated_post_data(array('A' => 1, 'C' => 1))));
         $this->assertEquals(array(0.5, question_state::$gradedpartial),
-                $question->grade_response(array('choice0' => '1')));
+                $question->grade_response($question->prepare_simulated_post_data(array('A' => 1))));
         $this->assertEquals(array(0, question_state::$gradedwrong),
-                $question->grade_response(
-                        array('choice0' => '1', 'choice1' => '1', 'choice2' => '1')));
+                $question->grade_response($question->prepare_simulated_post_data(array('A' => 1, 'B' => 1, 'C' => 1))));
         $this->assertEquals(array(0, question_state::$gradedwrong),
-                $question->grade_response(array('choice1' => '1')));
+                $question->grade_response($question->prepare_simulated_post_data(array('B' => 1))));
     }
 
     public function test_get_correct_response() {
-        $question = test_question_maker::make_a_multichoice_multi_question();
-        $question->shuffleanswers = false;
+        $question = test_question_maker::make_a_ioshmultichoice_multi_question();
         $question->start_attempt(new question_attempt_step(), 1);
 
-        $this->assertEquals(array('choice0' => '1', 'choice2' => '1'),
-                $question->get_correct_response());
+        $this->assertEquals($question->prepare_simulated_post_data(array('A' => 1, 'C' => 1)), $question->get_correct_response());
     }
 
     public function test_get_question_summary() {
-        $mc = test_question_maker::make_a_multichoice_single_question();
+        $mc = test_question_maker::make_a_ioshmultichoice_single_question();
         $mc->start_attempt(new question_attempt_step(), 1);
 
         $qsummary = $mc->get_question_summary();
@@ -127,26 +123,56 @@ class qtype_ioshmultichoice_multi_question_test extends advanced_testcase {
     }
 
     public function test_summarise_response() {
-        $mc = test_question_maker::make_a_multichoice_multi_question();
+        $mc = test_question_maker::make_a_ioshmultichoice_multi_question();
         $mc->shuffleanswers = false;
         $mc->start_attempt(new question_attempt_step(), 1);
 
-        $summary = $mc->summarise_response(array('choice1' => 1, 'choice2' => 1),
+        $summary = $mc->summarise_response($mc->prepare_simulated_post_data(array('B' => 1, 'C' => 1)),
                 test_question_maker::get_a_qa($mc));
 
         $this->assertEquals('B; C', $summary);
     }
 
-    public function test_classify_response() {
-        $mc = test_question_maker::make_a_multichoice_multi_question();
+    public function test_summarise_response_clearchoice() {
+        $mc = test_question_maker::make_a_ioshmultichoice_multi_question();
         $mc->shuffleanswers = false;
+        $mc->start_attempt(new question_attempt_step(), 1);
+
+        $summary = $mc->summarise_response($mc->prepare_simulated_post_data(array('clearchoice' => -1)),
+            test_question_maker::get_a_qa($mc));
+
+        $this->assertNull($summary);
+    }
+
+    public function test_classify_response() {
+        $mc = test_question_maker::make_a_ioshmultichoice_multi_question();
         $mc->start_attempt(new question_attempt_step(), 1);
 
         $this->assertEquals(array(
                     13 => new question_classified_response(13, 'A', 0.5),
                     14 => new question_classified_response(14, 'B', -1.0),
-                ), $mc->classify_response(array('choice0' => 1, 'choice1' => 1)));
+                ), $mc->classify_response($mc->prepare_simulated_post_data(array('A' => 1, 'B' => 1))));
 
         $this->assertEquals(array(), $mc->classify_response(array()));
     }
+
+    public function test_prepare_simulated_post_data() {
+        $mc = test_question_maker::make_a_ioshmultichoice_multi_question();
+        $mc->start_attempt(new question_attempt_step(), 1);
+        $correctanswers = array(
+            array(),
+            array('A' => 1),
+            array('B' => 1, 'D' => 0),
+            array('A' => 0, 'B' => 0, 'C' => 0, 'D' => 0),
+            array('A' => 1, 'B' => 0, 'C' => 1, 'D' => 0),
+            array('A' => 1, 'B' => 0, 'C' => 1, 'D' => 1),
+            array('A' => 1, 'B' => 1, 'C' => 1, 'D' => 1)
+        );
+        foreach ($correctanswers as $correctanswer) {
+            $postdata = $mc->prepare_simulated_post_data($correctanswer);
+            $simulatedreponse = $mc->get_student_response_values_for_simulation($postdata);
+            $this->assertEquals($correctanswer, $simulatedreponse, '', 0, 10, true);
+        }
+    }
+
 }
