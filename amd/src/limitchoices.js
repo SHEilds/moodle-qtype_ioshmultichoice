@@ -1,25 +1,19 @@
 define(["jquery"], function ($) {
-	var selector = ".answer input[type=checkbox]"
-	var limit
+	var selector = ".answer input[type=checkbox]",
+		limit
 
 	var checkboxStateHandler = function () {
-		var unselected = []
-		var selected = []
+		var unselected = [],
+			selected = []
 
 		// Categorise the checkbox states.
 		$(selector).each(function (_) {
-			if (this.checked) {
-				selected.push(this)
-			} else {
-				unselected.push(this)
-			}
+			this.checked ? selected.push(this) : unselected.push(this)
 		})
 
 		// Remove any checkboxes which go over the limit.
-		if (selected.length > limit) {
-			while (selected.length > limit) {
-				selected.pop().checked = false
-			}
+		while (selected.length > limit) {
+			selected.pop().checked = false
 		}
 
 		// Disable checkboxes that are unchecked at limit reached.

@@ -28,6 +28,6 @@ defined('MOODLE_INTERNAL') || die();
 $plugin->component = 'qtype_ioshmultichoice';
 $plugin->version   = 2020072102;
 
-$plugin->requires  = 2020060900;
+$plugin->requires  = 2019010900;
 
 $plugin->maturity  = MATURITY_STABLE;
